@@ -4,25 +4,26 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ServerInfo;
-import ru.eblan.visuals.EblanVisuals;
 import ru.eblan.visuals.config.DrpcConfig;
 import ru.eblan.visuals.config.JsonConfigStore;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.net.StandardProtocolFamily;
 import java.net.UnixDomainSocketAddress;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 /**
  * Минимальный Discord IPC-клиент для SET_ACTIVITY без сторонних зависимостей.
  */
 public final class DiscordRichPresenceManager {
+    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
     private final DrpcConfig config;
     private DiscordIpcConnection connection;
     private long lastUpdate;
@@ -59,8 +60,14 @@ public final class DiscordRichPresenceManager {
     public void applyConfig(DrpcConfig updated) {
         config.applicationId = updated.applicationId;
         config.enabled = updated.enabled;
+        config.presenceMode = updated.presenceMode;
+        config.gameName = updated.gameName;
         config.details = updated.details;
         config.state = updated.state;
+        config.largeImageKey = updated.largeImageKey;
+        config.largeImageText = updated.largeImageText;
+        config.smallImageKey = updated.smallImageKey;
+        config.smallImageText = updated.smallImageText;
         config.button1Name = updated.button1Name;
         config.button1Url = updated.button1Url;
         config.button2Name = updated.button2Name;
@@ -79,6 +86,15 @@ public final class DiscordRichPresenceManager {
 
     private JsonObject createActivity(MinecraftClient client) {
         JsonObject activity = new JsonObject();
+        String gameName = expand(config.gameName, client);
+        if ("NORMAL_MINECRAFT".equals(config.presenceMode) || gameName.isBlank()) {
+            gameName = "Minecraft";
+        }
+        // Discord показывает имя приложения из Developer Portal, но принимает
+        // переданное имя как часть activity. Дублируем его в details, чтобы
+        // кастомное название было видно даже при ограничениях клиента Discord.
+        activity.addProperty("name", gameName);
+        activity.addProperty("type", 0);
         activity.addProperty("details", expand(config.details, client));
         activity.addProperty("state", expand(config.state, client));
         activity.addProperty("instance", true);
@@ -91,10 +107,23 @@ public final class DiscordRichPresenceManager {
         }
 
         JsonObject assets = new JsonObject();
-        assets.addProperty("large_image", "eblan_visuals");
-        assets.addProperty("large_text", "Eblan Visuals");
-        activity.add("assets", assets);
+        addAsset(assets, "large_image", "large_text", config.largeImageKey, config.largeImageText);
+        addAsset(assets, "small_image", "small_text", config.smallImageKey, config.smallImageText);
+        if (!assets.isEmpty()) {
+            activity.add("assets", assets);
+        }
         return activity;
+    }
+
+    private static void addAsset(JsonObject assets, String imageProperty, String textProperty,
+                                 String key, String hoverText) {
+        if (key == null || key.isBlank()) {
+            return;
+        }
+        assets.addProperty(imageProperty, key);
+        if (hoverText != null && !hoverText.isBlank()) {
+            assets.addProperty(textProperty, hoverText);
+        }
     }
 
     private static void addButton(JsonArray buttons, String name, String url) {
@@ -113,10 +142,12 @@ public final class DiscordRichPresenceManager {
         String username = client.getSession().getUsername();
         String ping = WatermarkHudValue.ping(client);
         String coords = WatermarkHudValue.coords(client);
+        String time = LocalTime.now().format(TIME_FORMAT);
         return result.replace("{server}", server)
                 .replace("{username}", username)
                 .replace("{ping}", ping)
-                .replace("{coords}", coords);
+                .replace("{coords}", coords)
+                .replace("{time}", time);
     }
 
     private static final class WatermarkHudValue {
