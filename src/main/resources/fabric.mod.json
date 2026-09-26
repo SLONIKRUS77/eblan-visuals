@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "eblan_visuals",
+  "version": "${version}",
+  "name": "Eblan Visuals",
+  "description": "Визуальные улучшения и кастомный Discord Rich Presence для Minecraft.",
+  "authors": [
+    "Eblan Visuals"
+  ],
+  "contact": {
+    "issues": "https://github.com/eblan/eblan-visuals/issues"
+  },
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "ru.eblan.visuals.EblanVisuals"
+    ]
+  },
+  "mixins": [
+    "eblan_visuals.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": ">=0.110.0"
+  }
+}
