@@ -40,6 +40,15 @@ public final class VisualEffects {
             client.world.addParticle(ParticleTypes.END_ROD, client.player.getX(),
                     client.player.getY() + 0.12, client.player.getZ(), 0.0, 0.01, 0.0);
         }
+        if (EblanVisuals.config().trailParticles) {
+            for (PersistentProjectileEntity projectile : client.world.getEntitiesByClass(
+                    PersistentProjectileEntity.class,
+                    client.player.getBoundingBox().expand(48.0),
+                    entity -> true)) {
+                client.world.addParticle(ParticleTypes.END_ROD, projectile.getX(),
+                        projectile.getY(), projectile.getZ(), 0.0, 0.005, 0.0);
+            }
+        }
     }
 
     public static void renderHealthBar(DrawContext context, RenderTickCounter tickCounter) {
